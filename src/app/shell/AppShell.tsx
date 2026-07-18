@@ -6,7 +6,7 @@ export const AppShell: React.FC = () => {
 
   const navigation = [
     { name: "Trạng Thái", href: "/health", icon: "activity", active: location.pathname === "/health" },
-    { name: "Tài Khoản", href: "#", icon: "wallet", disabled: true },
+    { name: "Tài Khoản", href: "/accounts", icon: "wallet", active: location.pathname === "/accounts" },
     { name: "Giao Dịch", href: "#", icon: "trending-up", disabled: true },
     { name: "Thiết Lập Setup", href: "#", icon: "layers", disabled: true },
     { name: "Phân Tích", href: "#", icon: "bar-chart-2", disabled: true },
@@ -73,7 +73,7 @@ export const AppShell: React.FC = () => {
             </div>
             <div className="overflow-hidden">
               <p className="text-xs font-semibold text-slate-300 truncate">Local Trader</p>
-              <p className="text-[10px] text-slate-500 font-mono truncate">v0.1.0 (Sprint 0)</p>
+              <p className="text-[10px] text-slate-500 font-mono truncate">v0.1.0 (Sprint 1)</p>
             </div>
           </div>
         </div>
@@ -85,7 +85,7 @@ export const AppShell: React.FC = () => {
         <header className="h-16 bg-slate-900 border-b border-slate-800 flex items-center justify-between px-8 shrink-0">
           <div className="flex items-center gap-2">
             <span className="text-xs bg-indigo-950 border border-indigo-500/20 text-indigo-400 font-semibold px-2.5 py-0.5 rounded-full uppercase tracking-wider">
-              Sprint 0 - Nền tảng
+              Sprint 1 - Accounts
             </span>
           </div>
           

@@ -21,8 +21,19 @@
 - account_type
 - timezone
 - is_demo
+- is_archived
 - created_at
 - updated_at
+
+Story 1 persistence rules:
+
+- `is_demo` and `is_archived` are constrained SQLite integers (`0` or `1`).
+- Accounts are archived/unarchived with `UPDATE`; the application exposes no hard-delete operation.
+- Active and archived lists use `idx_accounts_archived_name (is_archived, name)`.
+- Duplicate business identity is checked case-insensitively after trimming
+  `broker + server + login_masked` in the application/repository flow.
+- Only a masked login identifier is stored. Passwords, API keys, and tokens are not part of the schema.
+- Account timestamps use UTC epoch milliseconds, consistent with the current application runtime.
 
 ### import_batches
 

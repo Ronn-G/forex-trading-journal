@@ -14,7 +14,9 @@
 
 ## Sprint 1 – Accounts and MT5 Import
 
-- Account CRUD.
+- Account CRUD with archive/unarchive. **Story 1 implemented; pending code review.**
+- Active/archived account filter and `/accounts` navigation.
+- Account validation, loading, empty, and database-error states.
 - Import file picker.
 - CSV parser.
 - Preview.

@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { calculateChecksum, splitSqlStatements, runMigrations } from "./migrator";
+import { calculateChecksum, splitSqlStatements, runMigrations, MIGRATIONS } from "./migrator";
 import Database from "@tauri-apps/plugin-sql";
 import { MigrationError } from "../../shared/errors";
 
@@ -65,5 +65,43 @@ describe("infrastructure/database/migrator", () => {
     } as unknown as Database;
 
     await expect(runMigrations(mockDb)).rejects.toThrow(MigrationError);
+  });
+
+  it("registers the accounts migration with required constraints and no secrets", () => {
+    expect(MIGRATIONS.map(({ version, name }) => ({ version, name }))).toEqual([
+      { version: 1, name: "0001_initial" },
+      { version: 2, name: "0002_accounts" },
+    ]);
+
+    const accountsMigration = MIGRATIONS[1];
+    expect(accountsMigration.sql).toContain("CREATE TABLE accounts");
+    expect(accountsMigration.sql).toContain("CHECK (is_demo IN (0, 1))");
+    expect(accountsMigration.sql).toContain("CHECK (is_archived IN (0, 1))");
+    expect(accountsMigration.sql).toContain("CREATE INDEX idx_accounts_archived_name");
+    expect(accountsMigration.sql).toContain("CREATE INDEX idx_accounts_broker_server");
+    expect(accountsMigration.sql).not.toMatch(/password|api[_ ]?key|token/i);
+  });
+
+  it("does not run migrations that are already applied", async () => {
+    const appliedRows = await Promise.all(
+      MIGRATIONS.map(async (migration) => ({
+        version: migration.version,
+        name: migration.name,
+        checksum: await calculateChecksum(migration.sql),
+        applied_at: Date.now(),
+      })),
+    );
+    const mockDb = {
+      execute: vi.fn().mockResolvedValue({ rowsAffected: 0, lastInsertId: 0 }),
+      select: vi.fn().mockResolvedValue(appliedRows),
+    } as unknown as Database;
+
+    await runMigrations(mockDb);
+
+    expect(mockDb.execute).toHaveBeenCalledTimes(1);
+    expect(mockDb.execute).toHaveBeenCalledWith(
+      expect.stringContaining("CREATE TABLE IF NOT EXISTS schema_migrations"),
+    );
+    expect(mockDb.execute).not.toHaveBeenCalledWith("BEGIN TRANSACTION;");
   });
 });
