@@ -1,0 +1,54 @@
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { Link } from "react-router-dom";
+import { AccountService } from "../../application/accounts/AccountService";
+import { ImportPreviewService } from "../../application/import/ImportPreviewService";
+import type { Account } from "../../domain/accounts/account";
+import type { ImportPreview } from "../../domain/import/import";
+import { SqlAccountRepository } from "../../infrastructure/database/repositories/SqlAccountRepository";
+import { SqlImportReadRepository } from "../../infrastructure/database/repositories/SqlImportReadRepository";
+import { VantageMt5CsvParser } from "../../infrastructure/import/mt5Csv/vantageMt5CsvParser";
+import { ImportFilePicker } from "./ImportFilePicker";
+import { ImportPreview as PreviewView } from "./ImportPreview";
+
+interface ImportScreenProps {
+  readonly accountService?: Pick<AccountService, "list">;
+  readonly previewService?: Pick<ImportPreviewService, "preview">;
+}
+export function ImportScreen({ accountService: suppliedAccountService, previewService: suppliedPreviewService }: ImportScreenProps = {}) {
+  const accountService = useMemo(() => suppliedAccountService ??
+    new AccountService(new SqlAccountRepository()), [suppliedAccountService]);
+  const previewService = useMemo(() => suppliedPreviewService ??
+    new ImportPreviewService(new VantageMt5CsvParser(), new SqlImportReadRepository()), [suppliedPreviewService]);
+  const [accounts, setAccounts] = useState<Account[]>([]); const [accountId, setAccountId] = useState("");
+  const [loading, setLoading] = useState(true); const [parsing, setParsing] = useState(false);
+  const [preview, setPreview] = useState<ImportPreview | null>(null); const [error, setError] = useState<string | null>(null);
+  const load = useCallback(async () => {
+    setLoading(true); setError(null);
+    try { const rows = await accountService.list("active"); setAccounts(rows); setAccountId((current) => current || rows[0]?.id || ""); }
+    catch { setError("Không thể tải tài khoản đang hoạt động."); } finally { setLoading(false); }
+  }, [accountService]);
+  useEffect(() => { void load(); }, [load]);
+  async function selectFile(file: File) {
+    const account = accounts.find((item) => item.id === accountId); if (!account) return;
+    setParsing(true); setError(null);
+    try { setPreview(await previewService.preview(account, file)); }
+    catch (caught) { setError(caught instanceof Error ? caught.message : "Không thể đọc báo cáo."); }
+    finally { setParsing(false); }
+  }
+  return <div className="mx-auto max-w-6xl p-8">
+    <h1 className="text-3xl font-extrabold">Xem trước nhập MT5</h1>
+    <p className="mb-6 mt-2 text-slate-400">File được đọc hoàn toàn trên thiết bị. Xem trước không ghi dữ liệu giao dịch.</p>
+    {error && <div role="alert" className="mb-5 rounded-lg border border-red-500/30 bg-red-950/30 p-4 text-red-300">{error}{" "}
+      <button className="underline" onClick={() => { setError(null); setPreview(null); }}>Thử lại</button></div>}
+    {loading ? <div role="status">Đang tải tài khoản…</div> : accounts.length === 0 ?
+      <div className="rounded-xl border border-slate-800 p-6">Bạn cần tạo một tài khoản đang hoạt động trước.{" "}
+        <Link className="text-indigo-400 underline" to="/accounts">Mở trang tài khoản</Link></div> :
+      preview ? <PreviewView preview={preview} onReset={() => { setPreview(null); setError(null); }} /> :
+      <div className="space-y-5"><label className="block">Tài khoản
+        <select className="ml-3 rounded bg-slate-900 p-2" value={accountId} onChange={(event) => setAccountId(event.target.value)}>
+          {accounts.map((account) => <option key={account.id} value={account.id}>{account.name} · {account.loginMasked}</option>)}
+        </select></label>
+        {parsing ? <div role="status">Đang kiểm tra và phân tích báo cáo…</div> :
+          <ImportFilePicker disabled={!accountId} onSelect={(file) => void selectFile(file)} />}</div>}
+  </div>;
+}

@@ -2,7 +2,7 @@
 
 **Project:** Forex Trading Journal
 **Branch:** `sprint/01-accounts-and-mt5-import`
-**Plan status:** STORY 1 IMPLEMENTED — PENDING GPT CODE REVIEW
+**Plan status:** STORIES 1–4 IMPLEMENTED — PENDING GPT CODE REVIEW
 **Prepared from:** repository at commit `124cd49`, project documentation, and the supplied Vantage MT5 CSV/HTML reports.
 
 ---
@@ -1193,6 +1193,11 @@ feat: add trading account management
 
 **Acceptance:** migration upgrade from schema v1 succeeds; raw repository has no update path.
 
+**Implementation status (2026-07-18): IMPLEMENTED — PENDING GPT CODE REVIEW.**
+
+Migration 0003, import domain models, and account-scoped read/dedup repository are implemented.
+Raw-record immutability is enforced at the repository/application boundary. Preview creates no batch.
+
 **Commit:**
 
 ```text
@@ -1205,6 +1210,13 @@ feat: add import batch and raw record foundation
 
 **Acceptance:** sanitized fixtures cover metadata, positions, orders, deals, grouping spaces, negative values, blank cells, and mixed price precision.
 
+**Implementation status (2026-07-18): IMPLEMENTED — PENDING GPT CODE REVIEW.**
+
+The supported identity is `VANTAGE_MT5_TRADE_HISTORY_CSV`, parser version
+`vantage-mt5-trade-history-csv@1`. Section parsers are isolated, unknown sections emit warnings,
+and UTF-8/BOM fixtures contain synthetic identities only. Broker-local timestamps retain their
+original text and are converted with the selected account IANA timezone.
+
 **Commit:**
 
 ```text
@@ -1216,6 +1228,16 @@ feat: parse Vantage MT5 trade history CSV
 **Goal:** user can select account/file and inspect preview without persistence.
 
 **Acceptance:** loading, empty, error, retry, cancel, and mismatch warning states work.
+
+**Implementation status (2026-07-18): IMPLEMENTED — PENDING GPT CODE REVIEW.**
+
+Route `/import` provides account selection, local file parsing, safe preview, issue samples, and reset.
+Duplicate checks are account-scoped. Preview is read-only and has no commit side effect.
+Story 5 and its Rust transaction remain unimplemented; Sprint 1 is not complete.
+
+`duplicateFile` reports file-level duplication as a boolean; `counts.duplicate` counts record-level
+external ID duplicates only. Story 5 must enforce raw-record/import-batch account identity inside the
+future transaction.
 
 **Commit:**
 

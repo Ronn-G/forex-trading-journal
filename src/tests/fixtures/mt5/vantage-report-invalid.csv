@@ -1,0 +1,5 @@
+Trade History Report
+Account:,12345678 (USD, VantageMarkets-Live 13, real, Hedge)
+Positions
+Time,Position,Symbol,Type,Volume,Price,S / L,T / P,Time,Price,Commission,Swap,Profit
+2026.02.30 09:00:00,,XAUUSD,hold,abc,4070.75,,,2026.01.02 08:00:00,4080.25,0,0,1

@@ -7,6 +7,7 @@ export const AppShell: React.FC = () => {
   const navigation = [
     { name: "Trạng Thái", href: "/health", icon: "activity", active: location.pathname === "/health" },
     { name: "Tài Khoản", href: "/accounts", icon: "wallet", active: location.pathname === "/accounts" },
+    { name: "Nhập MT5", href: "/import", icon: "trending-up", active: location.pathname === "/import" },
     { name: "Giao Dịch", href: "#", icon: "trending-up", disabled: true },
     { name: "Thiết Lập Setup", href: "#", icon: "layers", disabled: true },
     { name: "Phân Tích", href: "#", icon: "bar-chart-2", disabled: true },

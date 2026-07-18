@@ -1,5 +1,8 @@
 # 11. Roadmap
 
+> Status 2026-07-18: Sprint 1 Stories 2, 3, and 4 are implemented and pending review.
+> Story 5 atomic import and all later stories are not implemented. Sprint 1 is not complete.
+
 ## Sprint 0 – Foundation
 
 - Khởi tạo Tauri + React + TypeScript.

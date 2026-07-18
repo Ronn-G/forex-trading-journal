@@ -2,6 +2,7 @@ import Database from "@tauri-apps/plugin-sql";
 import { MigrationError } from "../../shared/errors";
 import initialSql from "./migrations/0001_initial.sql?raw";
 import accountsSql from "./migrations/0002_accounts.sql?raw";
+import importFoundationSql from "./migrations/0003_import_foundation.sql?raw";
 
 export interface Migration {
   version: number;
@@ -12,6 +13,7 @@ export interface Migration {
 export const MIGRATIONS: Migration[] = [
   { version: 1, name: "0001_initial", sql: initialSql },
   { version: 2, name: "0002_accounts", sql: accountsSql },
+  { version: 3, name: "0003_import_foundation", sql: importFoundationSql },
 ];
 
 /**

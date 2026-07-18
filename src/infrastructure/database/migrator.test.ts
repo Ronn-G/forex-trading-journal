@@ -71,6 +71,7 @@ describe("infrastructure/database/migrator", () => {
     expect(MIGRATIONS.map(({ version, name }) => ({ version, name }))).toEqual([
       { version: 1, name: "0001_initial" },
       { version: 2, name: "0002_accounts" },
+      { version: 3, name: "0003_import_foundation" },
     ]);
 
     const accountsMigration = MIGRATIONS[1];
@@ -80,6 +81,35 @@ describe("infrastructure/database/migrator", () => {
     expect(accountsMigration.sql).toContain("CREATE INDEX idx_accounts_archived_name");
     expect(accountsMigration.sql).toContain("CREATE INDEX idx_accounts_broker_server");
     expect(accountsMigration.sql).not.toMatch(/password|api[_ ]?key|token/i);
+  });
+
+  it("registers migration 0003 with import foundation constraints and indexes", () => {
+    const migration = MIGRATIONS[2];
+    expect(migration.version).toBeGreaterThan(MIGRATIONS[1].version);
+    expect(migration.sql).toMatch(/CREATE TABLE import_batches/i);
+    expect(migration.sql).toMatch(/CREATE TABLE raw_mt5_records/i);
+    expect(migration.sql).toMatch(/account_id TEXT NOT NULL REFERENCES accounts\(id\)/i);
+    expect(migration.sql).toMatch(/import_batch_id TEXT NOT NULL REFERENCES import_batches\(id\)/i);
+    expect(migration.sql).toMatch(/UNIQUE\(account_id, source_sha256\)/i);
+    expect(migration.sql).toMatch(/UNIQUE\(import_batch_id, record_type, row_number\)/i);
+    expect(migration.sql).toMatch(/UNIQUE\(account_id, record_type, external_id\)/i);
+    expect(migration.sql).toMatch(/CHECK\s*\(\s*status IN\s*\(/i);
+    expect(migration.sql).toMatch(/CREATE INDEX idx_import_batches_account_started/i);
+    expect(migration.sql).toMatch(/CREATE INDEX idx_raw_mt5_records_batch/i);
+    expect(migration.sql).toMatch(/CREATE INDEX idx_raw_mt5_records_account_type/i);
+    expect(migration.sql).not.toMatch(/password|api[_ ]?key|token/i);
+  });
+
+  it("applies the mocked upgrade path in version order 1 then 2 then 3", async () => {
+    const mockDb = {
+      execute: vi.fn().mockResolvedValue({ rowsAffected: 0, lastInsertId: 0 }),
+      select: vi.fn().mockResolvedValue([]),
+    } as unknown as Database;
+    await runMigrations(mockDb);
+    const inserts = vi.mocked(mockDb.execute).mock.calls
+      .filter(([sql]) => typeof sql === "string" && sql.startsWith("INSERT INTO schema_migrations"))
+      .map(([, parameters]) => (parameters as unknown[])[0]);
+    expect(inserts).toEqual([1, 2, 3]);
   });
 
   it("does not run migrations that are already applied", async () => {

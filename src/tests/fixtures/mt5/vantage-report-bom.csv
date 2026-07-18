@@ -1,0 +1,18 @@
+﻿Trade History Report
+Account:,12345678 (USD, VantageMarkets-Live 13, real, Hedge)
+Currency:,USD
+Server:,VantageMarkets-Live 13
+Positions
+Time,Position,Symbol,Type,Volume,Price,S / L,T / P,Time,Price,Commission,Swap,Profit
+2026.01.02 09:00:00,900001,XAUUSD,buy,0.10,4 070.75,,,2026.01.02 10:00:00,4080.25,- 1.15,0,95.00
+2026.01.03 09:00:00,900002,USDJPY,sell,0.20,157.123,,,2026.01.03 11:00:00,156.900,-2.00,- 0.15,44.60
+2026.01.04 09:00:00,900003,EURUSD,buy,0.10,1.03456,,,,,-1.00,0,0
+Orders
+Time,Order,Symbol,Type,Volume,Volume Current,Price,S / L,T / P,Time,State,Comment,Magic,Position
+2026.01.02 09:00:00,800001,XAUUSD,buy,0.10,0,4070.75,,,2026.01.02 10:00:00,filled,"synthetic, quoted",42,900001
+Deals
+Time,Deal,Symbol,Type,Direction,Volume,Price,Order,Commission,Swap,Profit,Comment,Magic,Position
+2026.01.02 09:00:00,700001,XAUUSD,buy,in,0.10,4070.75,800001,-1.15,0,0,synthetic,42,900001
+Results
+Metric,Value
+Balance,10000.00

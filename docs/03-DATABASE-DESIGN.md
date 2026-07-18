@@ -68,6 +68,19 @@ Unique:
 Unique:
 - `(account_id, record_type, external_id)`
 
+Story 2 uses migration `0003_import_foundation.sql`. File identity is account-scoped.
+Raw rows are immutable at the application/repository boundary: no update or delete operation exists.
+Preview is read-only and does not persist a `PREVIEWED` batch.
+
+Migration 0003 coverage currently uses the existing migration-runner mock harness. A real SQLite
+constraint/foreign-key integration harness is a documented future hardening item, not a current claim.
+
+`duplicateFile` is a separate preview boolean for `(account_id, source_sha256)`.
+`counts.duplicate` contains only account-scoped external position/order/deal ID duplicates.
+
+The future Story 5 transaction must reject any raw record whose `account_id` differs from its
+`import_batches.account_id`, even though both foreign keys independently reference valid rows.
+
 ### mt5_orders
 
 - id

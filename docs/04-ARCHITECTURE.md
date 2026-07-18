@@ -140,3 +140,19 @@ Tên file nội bộ dùng UUID hoặc hash, không phụ thuộc tên file gố
 - Không lưu toàn bộ app state trong localStorage.
 - Không dùng localStorage làm nguồn dữ liệu chính.
 - Không sửa database bằng SQL rời rạc ngoài migration hoặc repository.
+
+## 10. Story 4 import preview boundary
+
+```text
+React ImportScreen
+-> ImportPreviewService
+-> domain parser/read ports
+-> Vantage CSV parser and SqlImportReadRepository
+-> SQLite read queries
+```
+
+The preview path is read-only. React does not query SQLite, the parser does not import React/Tauri/SQL,
+and the read repository exposes no raw-record update or delete operation. Parser sections are isolated
+into `parsePositions`, `parseOrders`, `parseDeals`, and `parseResults`.
+
+Story 5 remains unimplemented: there is no commit UI state, Rust transaction command, or trading-record write.
