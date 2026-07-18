@@ -22,3 +22,6 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+
+dist-portable/
+forex-trading-journal-portable.zip
