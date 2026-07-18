@@ -72,6 +72,7 @@ describe("infrastructure/database/migrator", () => {
       { version: 1, name: "0001_initial" },
       { version: 2, name: "0002_accounts" },
       { version: 3, name: "0003_import_foundation" },
+      { version: 4, name: "0004_mt5_entities" },
     ]);
 
     const accountsMigration = MIGRATIONS[1];
@@ -81,6 +82,23 @@ describe("infrastructure/database/migrator", () => {
     expect(accountsMigration.sql).toContain("CREATE INDEX idx_accounts_archived_name");
     expect(accountsMigration.sql).toContain("CREATE INDEX idx_accounts_broker_server");
     expect(accountsMigration.sql).not.toMatch(/password|api[_ ]?key|token/i);
+  });
+
+  it("registers migration 0004 without normalized trade tables or floating financial storage", () => {
+    const migration = MIGRATIONS[3];
+    expect(migration.sql).toContain("CREATE TABLE mt5_positions");
+    expect(migration.sql).toContain("CREATE TABLE mt5_orders");
+    expect(migration.sql).toContain("CREATE TABLE mt5_deals");
+    expect(migration.sql).toContain("UNIQUE(account_id, external_position_id)");
+    expect(migration.sql).toContain("UNIQUE(account_id, external_order_id)");
+    expect(migration.sql).toContain("UNIQUE(account_id, external_deal_id)");
+    expect(migration.sql).toContain("status <> 'CLOSED'");
+    expect(migration.sql).toMatch(/CREATE INDEX idx_mt5_positions_batch/);
+    expect(migration.sql).toMatch(/CREATE INDEX idx_mt5_orders_batch/);
+    expect(migration.sql).toMatch(/CREATE INDEX idx_mt5_deals_batch/);
+    expect(migration.sql).not.toMatch(/\bREAL\b|\bFLOAT\b/i);
+    expect(migration.sql).not.toMatch(/CREATE TABLE trades/i);
+    expect(migration.sql).not.toMatch(/password|api[_ ]?key|token/i);
   });
 
   it("registers migration 0003 with import foundation constraints and indexes", () => {
@@ -109,7 +127,7 @@ describe("infrastructure/database/migrator", () => {
     const inserts = vi.mocked(mockDb.execute).mock.calls
       .filter(([sql]) => typeof sql === "string" && sql.startsWith("INSERT INTO schema_migrations"))
       .map(([, parameters]) => (parameters as unknown[])[0]);
-    expect(inserts).toEqual([1, 2, 3]);
+    expect(inserts).toEqual([1, 2, 3, 4]);
   });
 
   it("does not run migrations that are already applied", async () => {

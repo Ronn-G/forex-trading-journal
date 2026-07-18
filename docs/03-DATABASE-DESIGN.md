@@ -81,6 +81,12 @@ constraint/foreign-key integration harness is a documented future hardening item
 The future Story 5 transaction must reject any raw record whose `account_id` differs from its
 `import_batches.account_id`, even though both foreign keys independently reference valid rows.
 
+Story 5 now enforces this invariant by accepting only one top-level account ID and binding it to every
+batch/raw/entity insert inside one Rust transaction.
+
+Migration `0004_mt5_entities.sql` creates `mt5_positions`, `mt5_orders`, and `mt5_deals`.
+Financial quantities use canonical decimal `TEXT`; no `trades` table is created in Story 5.
+
 ### mt5_orders
 
 - id

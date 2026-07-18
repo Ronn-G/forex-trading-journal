@@ -2,7 +2,7 @@
 
 **Project:** Forex Trading Journal
 **Branch:** `sprint/01-accounts-and-mt5-import`
-**Plan status:** STORIES 1–4 IMPLEMENTED — PENDING GPT CODE REVIEW
+**Plan status:** STORIES 1–4 COMMITTED; STORY 5 IMPLEMENTED — PENDING GPT CODE REVIEW
 **Prepared from:** repository at commit `124cd49`, project documentation, and the supplied Vantage MT5 CSV/HTML reports.
 
 ---
@@ -1250,6 +1250,12 @@ feat: add MT5 import preview flow
 **Goal:** commit all import data with a real SQLite transaction.
 
 **Acceptance:** injected failure mid-import leaves zero business rows; duplicate import is idempotent.
+
+**Implementation status (2026-07-18): IMPLEMENTED — PENDING GPT CODE REVIEW.**
+
+The Rust `commit_mt5_import` command opens the same app-config SQLite file as plugin-sql and commits
+batch/raw/position/order/deal writes in one sqlx transaction. Failures roll back completely and are not
+persisted as failed audit attempts. Story 6 trades and normalization remain unimplemented.
 
 **Commit:**
 

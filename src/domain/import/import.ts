@@ -62,7 +62,7 @@ export interface PreparedImport {
   readonly issues: readonly ImportIssue[]; readonly totalRows: number;
 }
 export interface ImportPreview {
-  readonly filename: string; readonly fileSize: number; readonly sourceSha256: string;
+  readonly accountId: string; readonly filename: string; readonly fileSize: number; readonly sourceSha256: string;
   readonly format: ImportSourceType; readonly parserVersion: string; readonly timezone: string;
   readonly metadata: ReportAccountMetadata;
   readonly counts: {
@@ -71,6 +71,7 @@ export interface ImportPreview {
     readonly error: number; readonly estimatedTrades: number;
   };
   readonly duplicateFile: boolean; readonly issues: readonly ImportIssue[];
+  readonly prepared: PreparedImport;
 }
 export function maskAccountLogin(raw: string): string | null {
   const digits = raw.replace(/\D/g, "");

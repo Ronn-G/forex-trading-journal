@@ -52,7 +52,14 @@ export class ImportPreviewService {
     const warningCount = allIssues.filter((issue) => issue.severity === "WARNING").length;
     const valid = prepared.positions.filter((row) => row.valid).length + prepared.orders.filter((row) => row.valid).length +
       prepared.deals.filter((row) => row.valid).length;
+    const preparedForCommit: PreparedImport = {
+      ...prepared,
+      positions: prepared.positions.filter((row) => row.valid && !positions.has(row.externalPositionId)),
+      orders: prepared.orders.filter((row) => row.valid && !orders.has(row.externalOrderId)),
+      deals: prepared.deals.filter((row) => row.valid && !deals.has(row.externalDealId)),
+    };
     return {
+      accountId: account.id,
       filename: file.name, fileSize: file.size, sourceSha256: prepared.sourceSha256,
       format: "VANTAGE_MT5_TRADE_HISTORY_CSV", parserVersion: this.parser.version, timezone: account.timezone,
       metadata: prepared.metadata, duplicateFile: Boolean(batch),
@@ -61,6 +68,7 @@ export class ImportPreviewService {
         warning: warningCount, error: errorCount,
         estimatedTrades: prepared.positions.filter((row) => row.valid && !row.open && !positions.has(row.externalPositionId)).length },
       issues: allIssues.slice(0, 100),
+      prepared: preparedForCommit,
     };
   }
 }

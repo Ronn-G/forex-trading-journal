@@ -58,6 +58,7 @@ describe("ImportPreviewService", () => {
   it("builds a valid read-only preview and estimates only closed valid positions", async () => {
     const repo = repository();
     const preview = await new ImportPreviewService(parser(), repo).preview(account, file());
+    expect(preview.accountId).toBe(account.id);
     expect(preview.counts).toMatchObject({
       positions: 3, orders: 1, deals: 1, results: 1, valid: 4, duplicate: 0, estimatedTrades: 1,
     });

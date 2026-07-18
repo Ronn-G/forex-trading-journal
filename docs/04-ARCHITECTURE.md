@@ -155,4 +155,23 @@ The preview path is read-only. React does not query SQLite, the parser does not 
 and the read repository exposes no raw-record update or delete operation. Parser sections are isolated
 into `parsePositions`, `parseOrders`, `parseDeals`, and `parseResults`.
 
-Story 5 remains unimplemented: there is no commit UI state, Rust transaction command, or trading-record write.
+## 11. Story 5 atomic import boundary
+
+```text
+ImportScreen
+-> ImportService
+-> invoke("commit_mt5_import")
+-> Rust validation
+-> sqlx SQLite transaction
+-> import batch + immutable raw records + MT5 positions/orders/deals
+```
+
+`tauri-plugin-sql 2.4.0` resolves `sqlite:database/journal.db` under
+`app.path().app_config_dir()`. The Rust database helper uses the identical
+`app_config_dir/database/journal.db` contract in development and packaged builds.
+The command enables foreign keys, a five-second busy timeout, and WAL mode.
+It acquires the SQLite writer with `BEGIN IMMEDIATE` before duplicate checks, so concurrent import
+commands cannot both pass the source/entity prechecks. Lock failures are mapped to a safe typed
+transaction error without exposing SQLite details.
+
+Story 5 writes no normalized trades. Story 6 remains unimplemented.
