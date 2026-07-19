@@ -36,18 +36,22 @@ Fixtures contain only synthetic owners, account numbers, and record IDs. No real
 
 ## Status and limitations
 
-Stories 2–4 are committed. Story 5 atomic persistence is implemented and pending GPT review.
-Sprint 1 is not complete; Story 6 normalization and trade list remain unimplemented.
+Stories 2–6 are committed. Story 7 HTML import is explicitly skipped. Story 8 hardening is pending
+review and manual acceptance, so Sprint 1 is not yet complete.
 
 Only the named Vantage English CSV variant is supported. HTML/XML and arbitrary broker CSV files are
 rejected. Open positions are warnings and excluded from estimated closed trades. Preview issue samples
 are capped at 100 while full summary counts are retained.
 
-Migration tests use the existing mocked migration-runner harness; they validate SQL text, registration,
-ordering, and already-applied behavior, but are not claimed as real SQLite integration tests.
+Mock migration-runner tests validate production metadata, checksum mismatch, ordering and
+already-applied behavior. Separate Rust tests execute the exact migration SQL against real SQLite and
+validate schema constraints. The Rust harness does not execute production TypeScript `runMigrations`.
 
-Story 5 must validate inside its database transaction that every raw record `accountId` equals the
-referenced import batch `accountId`; trusting only the preview payload is not sufficient.
+The Story 5 command validates inside its database transaction that every raw record belongs to the
+top-level account and referenced batch; it does not trust preview data alone.
+
+Trade symbol filtering uses literal contains semantics. `%`, `_`, and `\` are escaped and are not
+wildcard syntax.
 
 ## Story 5 transaction policy
 

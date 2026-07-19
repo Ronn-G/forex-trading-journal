@@ -34,6 +34,10 @@ describe("MT5 primitives", () => {
 });
 
 describe("Vantage parser", () => {
+  it("rejects an empty file", async () => {
+    await expect(new VantageMt5CsvParser().parse(new Uint8Array(), "UTC"))
+      .rejects.toBeInstanceOf(ImportParseError);
+  });
   it("parses all report sections and preserves safe metadata", async () => {
     const bytes = new TextEncoder().encode(minimalFixture);
     const parsed = await new VantageMt5CsvParser().parse(bytes, "Asia/Ho_Chi_Minh");
@@ -61,6 +65,44 @@ describe("Vantage parser", () => {
     ]);
     expect(bomResult.positions).toEqual(plainResult.positions);
     expect(await sha256Hex(bom)).not.toBe(await sha256Hex(plain));
+  });
+  it.each([
+    {
+      section: "POSITIONS", code: "DUPLICATE_POSITION_ID", id: "900001",
+      duplicate: minimalFixture.replace(
+        "2026.01.03 09:00:00,900002,USDJPY",
+        "2026.01.03 09:00:00,900001,USDJPY",
+      ),
+      select: (parsed: Awaited<ReturnType<VantageMt5CsvParser["parse"]>>) =>
+        parsed.positions.map((row) => ({ externalId: row.externalPositionId, valid: row.valid, rowNumber: row.rowNumber })),
+    },
+    {
+      section: "ORDERS", code: "DUPLICATE_ORDER_ID", id: "800001",
+      duplicate: minimalFixture.replace(
+        "Deals\n",
+        '2026.01.02 09:00:00,800001,EURUSD,buy,0.10,0,1.1,,,2026.01.02 10:00:00,filled,"duplicate",42,900001\nDeals\n',
+      ),
+      select: (parsed: Awaited<ReturnType<VantageMt5CsvParser["parse"]>>) =>
+        parsed.orders.map((row) => ({ externalId: row.externalOrderId, valid: row.valid, rowNumber: row.rowNumber })),
+    },
+    {
+      section: "DEALS", code: "DUPLICATE_DEAL_ID", id: "700001",
+      duplicate: minimalFixture.replace(
+        "Results\n",
+        "2026.01.02 09:30:00,700001,EURUSD,buy,in,0.10,1.1,800001,0,0,0,duplicate,42,900001\nResults\n",
+      ),
+      select: (parsed: Awaited<ReturnType<VantageMt5CsvParser["parse"]>>) =>
+        parsed.deals.map((row) => ({ externalId: row.externalDealId, valid: row.valid, rowNumber: row.rowNumber })),
+    },
+  ])("invalidates only later duplicate IDs in $section", async ({ section, code, id, duplicate, select }) => {
+    const parsed = await new VantageMt5CsvParser().parse(new TextEncoder().encode(duplicate), "UTC");
+    const occurrences = select(parsed).filter((row) => row.externalId === id);
+    expect(occurrences).toHaveLength(2);
+    expect(occurrences[0].valid).toBe(true);
+    expect(occurrences[1].valid).toBe(false);
+    expect(parsed.issues).toContainEqual(expect.objectContaining({
+      code, section, severity: "ERROR", rowNumber: occurrences[1].rowNumber,
+    }));
   });
 });
 
@@ -189,6 +231,19 @@ describe("section parsers", () => {
 });
 
 describe("unknown section scanning", () => {
+  it("handles LF/CRLF, blank lines, quoted commas and escaped quotes consistently", () => {
+    const lf = 'Trade History Report\n\nPositions\nA,B\n1,"safe, ""quoted"""\n';
+    const crlf = lf.replace(/\n/g, "\r\n");
+    expect(parseCsvRows(lf).map((row) => row.cells)).toEqual(parseCsvRows(crlf).map((row) => row.cells));
+    expect(scanSections(lf).positions.rows[0].cells[1]).toBe('safe, "quoted"');
+  });
+  it("warns for repeated headers and rejects malformed row transitions", () => {
+    const report = scanSections("Trade History Report\nPositions\nA,B\nA,B\n1\n");
+    expect(report.issues).toEqual(expect.arrayContaining([
+      expect.objectContaining({ code: "REPEATED_HEADER" }),
+      expect.objectContaining({ code: "ROW_WIDTH_MISMATCH" }),
+    ]));
+  });
   it("warns and resumes at the next supported section", () => {
     const report = scanSections(
       "Trade History Report\nPositions\nA,B\n1,2\nExposure\nA,B\nx,y\nOrders\nA,B\n3,4\nResults\nA,B\n5,6",

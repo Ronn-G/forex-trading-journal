@@ -1,9 +1,8 @@
 # 11. Roadmap
 
-> Status 2026-07-18: Sprint 1 Stories 2, 3, and 4 are implemented and pending review.
-> Story 5 is committed. Story 6 normalization and basic trade list are implemented pending GPT review.
-> Story 7 and later remain unimplemented; Sprint 1 is not complete.
-> Sprint 1 is not complete.
+> Status 2026-07-19: Stories 1–6 are done and committed. Optional Story 7 (HTML import) is skipped.
+> Story 8 hardening is implemented pending GPT review and manual acceptance. Sprint 1 remains
+> incomplete until those gates and final branch verification pass; Sprint 2 is deferred.
 
 ## Sprint 0 – Foundation
 
@@ -19,7 +18,7 @@
 
 ## Sprint 1 – Accounts and MT5 Import
 
-- Account CRUD with archive/unarchive. **Story 1 implemented; pending code review.**
+- Account CRUD with archive/unarchive. **Done.**
 - Active/archived account filter and `/accounts` navigation.
 - Account validation, loading, empty, and database-error states.
 - Import file picker.
@@ -31,6 +30,8 @@
 - Import transaction.
 - Basic normalization.
 - Trade list.
+- Story 7 HTML import. **Skipped (optional).**
+- Story 8 hardening/docs/verification. **Implemented; pending review/manual acceptance.**
 
 ## Sprint 2 – Trade Journal
 

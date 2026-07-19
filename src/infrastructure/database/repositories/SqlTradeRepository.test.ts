@@ -24,6 +24,22 @@ describe("SqlTradeRepository", () => {
     expect(params).toEqual(["a", "%EUR%", "BUY", 1, 2, 20, 5]);
     expect(sql).not.toContain("EUR");
   });
+  it.each([
+    ["' OR 1=1 --", "%' OR 1=1 --%"],
+    ["%", "%\\%%"],
+    ["_", "%\\_%"],
+    ["\\", "%\\\\%"],
+    ["日経", "%日経%"],
+  ])("treats symbol search %s as a parameterized literal", async (symbol, expected) => {
+    const select = vi.fn().mockResolvedValueOnce([]).mockResolvedValueOnce([{ total: 0 }]);
+    await new SqlTradeRepository(async () => ({ select })).listByAccount({
+      accountId: "account-a", limit: 20, offset: 0, symbol, sort: "CLOSED_DESC",
+    });
+    const [sql, params] = select.mock.calls[0];
+    expect(sql).toContain("account_id = $1");
+    expect(sql).toContain("symbol LIKE $2 ESCAPE '\\'");
+    expect(params).toEqual(["account-a", expected, 20, 0]);
+  });
   it("rejects malformed rows", async () => {
     const select = vi.fn().mockResolvedValueOnce([{ ...row, side: "BAD" }]).mockResolvedValueOnce([{ total: 1 }]);
     await expect(new SqlTradeRepository(async () => ({ select })).listByAccount({

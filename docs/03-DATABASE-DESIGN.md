@@ -1,5 +1,36 @@
 # 03. Database Design
 
+## Sprint 1 implemented schema (source of truth)
+
+Financial decimals are canonical SQLite `TEXT`; timestamps are UTC epoch milliseconds in `INTEGER`.
+The implemented migrations are immutable files `0001`–`0005`:
+
+- `0001_initial`: `schema_migrations`, `system_config`.
+- `0002_accounts`: accounts, boolean CHECK constraints, archived/name and broker/server indexes.
+- `0003_import_foundation`: account-scoped import batches and immutable-boundary raw MT5 records.
+- `0004_mt5_entities`: account-scoped positions, orders and deals with foreign keys, side/status
+  constraints and external-ID uniqueness.
+- `0005_trades`: CLOSED trades normalized from positions, unique by
+  `(account_id, source_type, source_position_id)`, with checked timestamps and non-negative duration.
+
+Raw storage includes valid non-duplicate canonical POSITION/ORDER/DEAL rows and parsed RESULT rows.
+Invalid or already-existing duplicate rows are represented in preview/batch counts and are not stored
+as raw records. No update/delete raw-record operation is exposed.
+
+Startup applies TypeScript migrations and then invokes the Rust backfill. Backfill uses the same exact
+decimal normalization as new imports, includes archived-account history, excludes OPEN positions,
+never overwrites an existing trade, and rolls back the entire backfill on malformed data.
+
+Real SQLite schema tests execute the exact SQL files 0001–0005 against a temporary file and verify
+tables, indexes, foreign keys, account-scoped uniqueness, entity/trade CHECK constraints, and
+financial TEXT affinity. They insert synthetic migration registry values and do **not** execute the
+production TypeScript `runMigrations` or its checksum algorithm. Mock production-migrator tests cover
+ordering, already-applied behavior and checksum mismatch. Rust transaction tests close and reopen a
+real database and prove row persistence plus idempotent backfill; they do not rerun migrations.
+
+Sections below describe the broader target model. Tables after `trades` are future MVP design and are
+not implemented in Sprint 1.
+
 ## 1. Công nghệ
 
 - SQLite.
@@ -72,8 +103,8 @@ Story 2 uses migration `0003_import_foundation.sql`. File identity is account-sc
 Raw rows are immutable at the application/repository boundary: no update or delete operation exists.
 Preview is read-only and does not persist a `PREVIEWED` batch.
 
-Migration 0003 coverage currently uses the existing migration-runner mock harness. A real SQLite
-constraint/foreign-key integration harness is a documented future hardening item, not a current claim.
+Migration 0003 has both mocked production-migrator coverage and real SQLite migration-SQL
+constraint/foreign-key coverage. Full production `runMigrations` against real SQLite is not claimed.
 
 `duplicateFile` is a separate preview boolean for `(account_id, source_sha256)`.
 `counts.duplicate` contains only account-scoped external position/order/deal ID duplicates.
@@ -86,6 +117,11 @@ batch/raw/entity insert inside one Rust transaction.
 
 Migration `0004_mt5_entities.sql` creates `mt5_positions`, `mt5_orders`, and `mt5_deals`.
 Financial quantities use canonical decimal `TEXT`; no `trades` table is created in Story 5.
+Migration 0004 constrains position side/status and requires close fields for CLOSED rows, but it does
+not contain a `closed_at >= opened_at` CHECK. Parser and strict Rust commit validation enforce that
+ordering before writes. Migration 0005 independently enforces ordering and non-negative duration on
+normalized trades. No migration 0006 is needed because all supported write paths already reject the
+invalid position ordering.
 
 Migration `0005_trades.sql` adds the Story 6 normalized `trades` table. Its source is exclusively
 valid CLOSED `mt5_positions`; Orders and Deals remain reconciliation data. Source identity is unique
@@ -335,7 +371,7 @@ Unique:
 
 ## 3. Quy tắc database
 
-- Timestamps lưu ISO UTC.
+- Sprint 1 timestamps lưu UTC epoch milliseconds (`INTEGER`).
 - Boolean lưu integer 0/1.
 - Enum được kiểm soát ở domain layer và database check constraint khi phù hợp.
 - Dữ liệu JSON chỉ dùng cho phần khó normalize hoặc snapshot; không dùng thay thế toàn bộ model quan hệ.

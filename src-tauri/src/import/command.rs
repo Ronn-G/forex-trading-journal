@@ -1371,6 +1371,66 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn reopen_database_and_idempotent_backfill_preserve_rows_and_counters() {
+        let (directory, path, first_pool, second_pool) = real_database_pools().await;
+        second_pool.close().await;
+        commit_with_pool(&first_pool, full_payload("a", '9'))
+            .await
+            .unwrap();
+        let before = sqlx::query(
+            "SELECT imported_rows, skipped_rows, warning_rows, error_rows FROM import_batches",
+        )
+        .fetch_one(&first_pool)
+        .await
+        .unwrap();
+        first_pool.close().await;
+
+        let options = SqliteConnectOptions::new()
+            .filename(&path)
+            .create_if_missing(false)
+            .foreign_keys(true)
+            .busy_timeout(std::time::Duration::from_secs(5))
+            .journal_mode(sqlx::sqlite::SqliteJournalMode::Wal);
+        let reopened = SqlitePoolOptions::new()
+            .max_connections(1)
+            .connect_with(options)
+            .await
+            .unwrap();
+        assert_eq!(backfill_with_pool(&reopened).await.unwrap(), 0);
+        for (table, expected) in [
+            ("accounts", 3),
+            ("import_batches", 1),
+            ("raw_mt5_records", 3),
+            ("mt5_positions", 1),
+            ("mt5_orders", 1),
+            ("mt5_deals", 1),
+            ("trades", 1),
+        ] {
+            let count: i64 = sqlx::query_scalar(&format!("SELECT COUNT(*) FROM {table}"))
+                .fetch_one(&reopened)
+                .await
+                .unwrap();
+            assert_eq!(count, expected, "restart changed {table}");
+        }
+        let after = sqlx::query(
+            "SELECT imported_rows, skipped_rows, warning_rows, error_rows FROM import_batches",
+        )
+        .fetch_one(&reopened)
+        .await
+        .unwrap();
+        for column in [
+            "imported_rows",
+            "skipped_rows",
+            "warning_rows",
+            "error_rows",
+        ] {
+            assert_eq!(before.get::<i64, _>(column), after.get::<i64, _>(column));
+        }
+        reopened.close().await;
+        cleanup_database_files(&directory, &path);
+    }
+
+    #[tokio::test]
     async fn raw_unique_conflicts_are_typed_without_partial_rows() {
         let scenarios = [
             ("mt5_positions", payload("a", '1'), payload("a", '2')),

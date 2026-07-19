@@ -1,6 +1,14 @@
-# Forex Trading Journal - Quy trình phát triển (Sprint 0)
+# Forex Trading Journal
 
 Ứng dụng nhật ký giao dịch ngoại hối (**Forex Trading Journal**) được phát triển dưới dạng Desktop App hoạt động ngoại tuyến (**local-first**), bảo vệ dữ liệu người dùng tối đa.
+
+Sprint 1 hỗ trợ quản lý account, preview/nhập Vantage MT5 Trade History CSV tiếng Anh và xem
+closed trades đã normalize. Dữ liệu nằm cục bộ trong app config tại `database/journal.db`; report
+thật, login đầy đủ và database không được commit.
+
+Giới hạn hiện tại: không hỗ trợ HTML; Story 7 đã được bỏ qua; Orders/Deals chưa reconstruct trade;
+OPEN positions chưa trở thành completed trades. Timestamp CSV được diễn giải theo IANA timezone của
+account. Khi lỗi startup, thử lại hoặc đóng/mở app; không sửa migration/database thủ công.
 
 ## 1. Stack công nghệ sử dụng
 *   **Core:** React 19 + TypeScript + Vite.
@@ -50,7 +58,7 @@ Dữ liệu SQLite được lưu trữ cục bộ tại thư mục App Data củ
 ## 4. Hướng dẫn thiết lập và phát triển cho Developer
 
 ### Yêu cầu hệ thống
-*   Node.js v18 trở lên.
+*   Node.js v20 trở lên.
 *   Rust toolchain (rustup) cài đặt sẵn trên máy Windows.
 *   WebView2 Runtime (thường đi kèm sẵn trên Windows 10/11 mới).
 
@@ -87,6 +95,17 @@ npm run tauri build
 # 6. Đóng gói bản Portable ZIP (Optional)
 npm run build:portable
 ```
+
+Các gate Rust:
+
+```bash
+cargo fmt --check --manifest-path src-tauri/Cargo.toml
+cargo clippy --manifest-path src-tauri/Cargo.toml --all-targets --all-features -- -D warnings
+cargo test --manifest-path src-tauri/Cargo.toml
+```
+
+CI chạy các gate frontend/Rust trên push và pull request. Release executable và NSIS installer được
+xác minh cục bộ trên Windows; CI không upload database, report hoặc installer.
 
 ## 5. Tài liệu đặc tả hệ thống
 Toàn bộ các tài liệu đặc tả nghiệp vụ, kiến trúc dữ liệu và quy trình nghiệp vụ được đặt tại thư mục `docs/`.

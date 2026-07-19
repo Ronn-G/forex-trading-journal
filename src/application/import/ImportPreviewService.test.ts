@@ -107,6 +107,37 @@ describe("ImportPreviewService", () => {
     const preview = await new ImportPreviewService(parser(basePrepared(issues)), repository()).preview(account, file());
     expect(preview.issues).toHaveLength(100); expect(preview.counts.warning).toBe(125);
   });
+  it.each([
+    ["POSITIONS", "DUPLICATE_POSITION_ID", "positions"],
+    ["ORDERS", "DUPLICATE_ORDER_ID", "orders"],
+    ["DEALS", "DUPLICATE_DEAL_ID", "deals"],
+  ] as const)("excludes invalid later duplicate %s rows from canonical commit data", async (
+    section, code, collection,
+  ) => {
+    const prepared = basePrepared();
+    const first = prepared[collection][0];
+    const duplicate = { ...first, rowNumber: first.rowNumber + 1, valid: false };
+    const withDuplicate: PreparedImport = {
+      ...prepared,
+      [collection]: [...prepared[collection], duplicate],
+      issues: [{
+        code, severity: "ERROR", section, rowNumber: duplicate.rowNumber,
+        message: "Synthetic duplicate external ID.",
+      }],
+      totalRows: prepared.totalRows + 1,
+    };
+    const preview = await new ImportPreviewService(parser(withDuplicate), repository())
+      .preview(account, file());
+    expect(preview.prepared[collection]).toHaveLength(
+      prepared[collection].filter((row) => row.valid).length,
+    );
+    expect(preview.prepared[collection]).not.toContainEqual(duplicate);
+    expect(preview.counts.error).toBe(1);
+    expect(preview.issues).toContainEqual(expect.objectContaining({
+      code, section, rowNumber: duplicate.rowNumber,
+    }));
+    if (collection === "positions") expect(preview.counts.estimatedTrades).toBe(1);
+  });
   it("adds every metadata mismatch warning", async () => {
     const prepared = basePrepared();
     const mismatch: PreparedImport = { ...prepared, metadata: {

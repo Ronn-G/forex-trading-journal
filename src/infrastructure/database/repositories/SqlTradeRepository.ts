@@ -20,6 +20,10 @@ const SELECT_COLUMNS = `id, account_id, source_type, source_position_id, import_
  open_price, close_price, stop_loss, take_profit, commission, swap, gross_profit,
  net_profit, duration_ms, status`;
 
+function escapeLikeLiteral(value: string): string {
+  return value.replace(/\\/g, "\\\\").replace(/%/g, "\\%").replace(/_/g, "\\_");
+}
+
 function mapRow(row: TradeRow): Trade {
   if (!row.id || !row.account_id || row.source_type !== "MT5_POSITION"
     || !["BUY", "SELL"].includes(row.side) || row.status !== "CLOSED"
@@ -43,7 +47,10 @@ export class SqlTradeRepository implements TradeRepository {
     const db = await this.getDb();
     const where = ["account_id = $1"]; const params: unknown[] = [input.accountId];
     const add = (sql: string, value: unknown) => { params.push(value); where.push(`${sql} $${params.length}`); };
-    if (input.symbol) add("symbol LIKE", `%${input.symbol}%`);
+    if (input.symbol) {
+      params.push(`%${escapeLikeLiteral(input.symbol)}%`);
+      where.push(`symbol LIKE $${params.length} ESCAPE '\\'`);
+    }
     if (input.side) add("side =", input.side);
     if (input.dateFrom !== undefined) add("closed_at >=", input.dateFrom);
     if (input.dateTo !== undefined) add("closed_at <=", input.dateTo);

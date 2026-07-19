@@ -1,5 +1,29 @@
 # 04. Application Architecture
 
+## Sprint 1 runtime architecture
+
+React components never execute SQL. Account CRUD, import-preview duplicate reads and trade reads flow
+through application services and typed TypeScript repositories using `@tauri-apps/plugin-sql`.
+User values are bound parameters; trade sorting is a fixed whitelist and symbol search is escaped
+literal-contains.
+
+Atomic import and normalization use a typed Tauri command backed by Rust/sqlx. Rust opens the same
+`app_config_dir/database/journal.db` used by plugin-sql, enables foreign keys/WAL/busy timeout, and
+acquires `BEGIN IMMEDIATE` before duplicate checks and all writes.
+
+Startup order is:
+
+1. plugin-sql opens the relative database path;
+2. TypeScript verifies/applies migrations and checks immutable checksums;
+3. Rust performs idempotent missing-trade backfill;
+4. the router renders only after both steps succeed.
+
+Migration/backfill failure renders a retry screen with a stable safe message. Raw SQL, stack traces,
+payloads and filesystem paths are not rendered. The trade route is
+`TradesScreen → ListTradesService → TradeRepository → SqlTradeRepository`.
+
+Story 7 HTML import is skipped. Only Vantage MT5 Trade History CSV in English is supported.
+
 ## 1. Stack
 
 - Tauri.

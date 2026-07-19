@@ -21,7 +21,7 @@ describe("app/shell/ErrorBoundary", () => {
 
     // Kiểm tra xem giao diện fallback của Error Boundary có render không
     expect(screen.getByText("Đã Xảy Ra Lỗi Giao Diện")).toBeInTheDocument();
-    expect(screen.getAllByText(/Test render error/).length).toBeGreaterThan(0);
+    expect(screen.queryByText(/Test render error/)).not.toBeInTheDocument();
     expect(screen.getByText("Tải Lại Giao Diện")).toBeInTheDocument();
 
     consoleSpy.mockRestore();

@@ -29,9 +29,9 @@ pub fn run() {
         .plugin(tauri_plugin_opener::init())
         .setup(|app| {
             let app_data_dir = app.path().app_data_dir().map_err(|e| {
-                let err_msg = format!("Failed to get app data directory: {:?}", e);
-                eprintln!("{}", err_msg);
-                tauri::Error::Io(std::io::Error::other(err_msg))
+                let _ = e;
+                eprintln!("APP_DATA_DIRECTORY_UNAVAILABLE");
+                tauri::Error::Io(std::io::Error::other("App data directory is unavailable."))
             })?;
 
             // Create the required subdirectories in App Data.
@@ -40,9 +40,11 @@ pub fn run() {
                 let path = app_data_dir.join(subdir);
                 if !path.exists() {
                     std::fs::create_dir_all(&path).map_err(|e| {
-                        let err_msg = format!("Failed to create directory {:?}: {:?}", path, e);
-                        eprintln!("{}", err_msg);
-                        tauri::Error::Io(std::io::Error::other(err_msg))
+                        let _ = e;
+                        eprintln!("APP_DATA_SUBDIRECTORY_CREATE_FAILED");
+                        tauri::Error::Io(std::io::Error::other(
+                            "An application data directory could not be created.",
+                        ))
                     })?;
                 }
             }
@@ -52,12 +54,11 @@ pub fn run() {
                 let config_db_dir = app_config_dir.join("database");
                 if !config_db_dir.exists() {
                     std::fs::create_dir_all(&config_db_dir).map_err(|e| {
-                        let err_msg = format!(
-                            "Failed to create config database directory {:?}: {:?}",
-                            config_db_dir, e
-                        );
-                        eprintln!("{}", err_msg);
-                        tauri::Error::Io(std::io::Error::other(err_msg))
+                        let _ = e;
+                        eprintln!("DATABASE_DIRECTORY_CREATE_FAILED");
+                        tauri::Error::Io(std::io::Error::other(
+                            "The database directory could not be created.",
+                        ))
                     })?;
                 }
             }

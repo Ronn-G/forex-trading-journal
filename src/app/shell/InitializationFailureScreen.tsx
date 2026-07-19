@@ -1,12 +1,10 @@
 import React from "react";
 
 interface InitializationFailureScreenProps {
-  error: Error;
   onRetry: () => void;
 }
 
 export const InitializationFailureScreen: React.FC<InitializationFailureScreenProps> = ({
-  error,
   onRetry,
 }) => {
   return (
@@ -29,17 +27,13 @@ export const InitializationFailureScreen: React.FC<InitializationFailureScreenPr
             Hệ thống không thể tải cơ sở dữ liệu cục bộ hoặc khởi chạy các tệp migration.
           </p>
           
-          <div className="w-full bg-slate-950 border border-slate-800 rounded-lg p-4 mb-6 text-left overflow-x-auto max-h-40">
-            <p className="font-mono text-xs text-red-400 font-semibold">{error.name}: {error.message}</p>
-            {error.stack && (
-              <pre className="font-mono text-[10px] text-slate-500 mt-2 leading-relaxed whitespace-pre-wrap">
-                {error.stack}
-              </pre>
-            )}
-          </div>
+          <p role="alert" className="mb-6 rounded-lg border border-slate-800 bg-slate-950 p-4 text-sm text-slate-300">
+            Không thể mở cơ sở dữ liệu. Hãy đóng và mở lại ứng dụng, hoặc thử lại.
+          </p>
           
           <button
             onClick={onRetry}
+            type="button"
             className="w-full bg-red-600 hover:bg-red-500 text-white font-medium py-2.5 px-4 rounded-lg transition-colors"
           >
             Thử Lại

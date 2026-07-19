@@ -24,7 +24,7 @@ export function App() {
       // 3. Backfill Story 5 CLOSED positions only after migration 0005 exists.
       await invoke<number>("backfill_missing_trades");
     } catch (error) {
-      console.error("Failed to initialize application:", error);
+      console.error("APP_INITIALIZATION_FAILED");
       setInitError(error instanceof Error ? error : new Error(String(error)));
     } finally {
       setLoading(false);
@@ -38,7 +38,7 @@ export function App() {
   if (loading) {
     return (
       <div className="min-h-screen bg-slate-950 text-slate-100 flex items-center justify-center">
-        <div className="flex flex-col items-center gap-3">
+        <div className="flex flex-col items-center gap-3" role="status" aria-live="polite">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-500"></div>
           <p className="text-slate-400 text-sm font-medium">Đang khởi tạo hệ thống...</p>
         </div>
@@ -49,7 +49,6 @@ export function App() {
   if (initError) {
     return (
       <InitializationFailureScreen
-        error={initError}
         onRetry={initializeApp}
       />
     );

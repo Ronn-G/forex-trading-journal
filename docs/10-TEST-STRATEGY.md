@@ -1,5 +1,28 @@
 # 10. Test Strategy
 
+## Sprint 1 implemented coverage
+
+- Frontend unit/behavior tests: account domain/services/repository/UI; parser metadata, sections,
+  required fields, timestamps and decimals; read-only preview and stale binding; import UI; startup
+  orchestration/privacy/retry; trade repository/service/UI, pagination, stale responses,
+  accessibility roles and responsive labels.
+- Real SQLite migration-SQL/schema integration: exact SQL files 0001–0005 execute; tables, indexes,
+  FK, account-scoped unique and implemented CHECK constraints are enforced. This harness does not
+  execute production TypeScript `runMigrations` and uses synthetic registry checksums.
+- Mock production-migrator boundary: production metadata/checksum calculation and mismatch, ordered
+  application, and no rerun for already-applied versions.
+- Rust transaction integration: atomic import, `BEGIN IMMEDIATE` concurrency, provenance/conflicts,
+  every rollback checkpoint, exact-decimal normalization/backfill, then close/reopen persistence and
+  idempotent backfill. The reopen test does not rerun migrations.
+- Manual packaged acceptance: account/import/trades/restart/privacy/keyboard/responsive behavior and
+  NSIS install/uninstall are recorded in `sprint_1_manual_acceptance.md`.
+
+All fixtures are synthetic. Tests do not use a real report or real account identity. SQLite file tests
+create isolated temp databases and close pools before cleanup.
+
+Partial-close/add-on reconstruction, setup/review/analytics, backup/restore and HTML import are future
+scope; this document does not claim they are covered by Sprint 1.
+
 ## 1. Test pyramid
 
 ### Unit tests

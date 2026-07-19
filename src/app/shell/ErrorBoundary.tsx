@@ -6,21 +6,22 @@ interface Props {
 
 interface State {
   hasError: boolean;
-  error: Error | null;
 }
 
 export class ErrorBoundary extends Component<Props, State> {
   public state: State = {
     hasError: false,
-    error: null,
   };
 
   public static getDerivedStateFromError(error: Error): State {
-    return { hasError: true, error };
+    void error;
+    return { hasError: true };
   }
 
   public componentDidCatch(error: Error, errorInfo: ErrorInfo) {
-    console.error("Uncaught error in React UI:", error, errorInfo);
+    void error;
+    void errorInfo;
+    console.error("UNCAUGHT_UI_ERROR");
   }
 
   private handleReload = () => {
@@ -49,19 +50,9 @@ export class ErrorBoundary extends Component<Props, State> {
                 Ứng dụng gặp một lỗi giao diện đột ngột. Hãy thử tải lại trang hoặc liên hệ hỗ trợ.
               </p>
 
-              <div className="w-full bg-slate-950 border border-slate-800 rounded-lg p-4 mb-6 text-left overflow-x-auto max-h-40">
-                <p className="font-mono text-xs text-red-400 font-semibold">
-                  {this.state.error?.name}: {this.state.error?.message}
-                </p>
-                {this.state.error?.stack && (
-                  <pre className="font-mono text-[10px] text-slate-500 mt-2 leading-relaxed whitespace-pre-wrap">
-                    {this.state.error.stack}
-                  </pre>
-                )}
-              </div>
-
               <button
                 onClick={this.handleReload}
+                type="button"
                 className="w-full bg-slate-800 hover:bg-slate-700 text-white font-medium py-2.5 px-4 rounded-lg transition-colors"
               >
                 Tải Lại Giao Diện

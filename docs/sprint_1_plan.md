@@ -1,5 +1,28 @@
 # Sprint 1 Plan — Accounts and MT5 Import
 
+> Implementation status (2026-07-19): Stories 1–6 are implemented and committed. Story 7 (HTML
+> import) is explicitly skipped as optional. Story 8 hardening and documentation is implemented in
+> the working tree, pending GPT code review and manual acceptance. Sprint 1 is not complete until
+> review, manual verification, commit/push, and final branch verification succeed.
+
+## Sprint 1 Acceptance Audit
+
+Status here means automated/code evidence only. GUI-dependent rows remain `PENDING MANUAL`.
+
+| Story | Requirement | Implementation evidence | Automated evidence | Manual | Status |
+|---|---|---|---|---|---|
+| 1 | Create/edit/archive/unarchive, validation, timezone, masked login, no hard delete | Account domain/service/repository/screens; `accounts` schema stores `login_masked` | account domain/service/repository/UI tests | lifecycle and restart | PENDING MANUAL |
+| 2 | batches/raw boundary, account-scoped uniqueness, migrations/checksums | migrations 0001–0003; read repository exposes no raw mutation | mocked production-migrator ordering/repeat/checksum tests; real SQLite migration-SQL schema/FK/unique/CHECK tests | inspect packaged database; production migrator is not exercised against real SQLite in automation | PENDING MANUAL |
+| 3 | Vantage CSV detection/metadata/sections/decimals/timestamps/issues | modular MT5 CSV parser and sanitized fixtures | parser suite covers BOM, timezone, required fields, unknown/repeated sections and duplicate IDs | preview a user-generated synthetic fixture | PENDING MANUAL |
+| 4 | read-only preview, counts, duplicates, mismatch warnings, no writes | `ImportPreviewService` and read-only port | preview service/repository/import UI tests | compare visible counts | PENDING MANUAL |
+| 5 | `BEGIN IMMEDIATE`, atomic writes, rollback, source/entity conflict, concurrency, account invariant, safe errors | Rust `commit_mt5_import` validation/transaction | two-pool concurrency, conflict and every failure-injection checkpoint tests | packaged import/duplicate | PENDING MANUAL |
+| 6 | CLOSED normalization, OPEN exclusion, exact net, backfill, isolated/filterable responsive list | shared Rust normalization/backfill; trade read stack | decimal/overflow/backfill/restart and trade repository/service/UI tests | desktop/mobile/archived history | PENDING MANUAL |
+| 7 | HTML import | explicitly excluded; CSV accepted for Sprint 1 | unsupported-format tests | none | SKIPPED OPTIONAL |
+| 8 | integration hardening, docs, CI, privacy, checklists | Story 8 working tree | frontend/Rust suites and quality gates | full manual checklist | PENDING MANUAL |
+
+Sprint 1 is not complete until GPT review, manual acceptance, Story 8 commit/push and final clean
+branch verification are complete.
+
 **Project:** Forex Trading Journal
 **Branch:** `sprint/01-accounts-and-mt5-import`
 **Plan status:** STORIES 1–4 COMMITTED; STORY 5 IMPLEMENTED — PENDING GPT CODE REVIEW

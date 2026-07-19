@@ -11,6 +11,17 @@ node_modules
 dist
 dist-ssr
 *.local
+.env
+.env.*
+!.env.example
+*.db
+*.db-wal
+*.db-shm
+*.sqlite
+*.sqlite3
+story-*-review*.diff
+story-*-review*.patch
+*.tmp
 
 # Editor directories and files
 .vscode/*
@@ -25,3 +36,7 @@ dist-ssr
 
 dist-portable/
 forex-trading-journal-portable.zip
+src-tauri/target/
+src-tauri/target/**/bundle/
+*.msi
+*.exe
