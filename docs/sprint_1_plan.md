@@ -1275,6 +1275,16 @@ feat: commit MT5 imports atomically
 feat: normalize imported positions and list trades
 ```
 
+**Implementation status (2026-07-18): IMPLEMENTED — PENDING GPT CODE REVIEW.**
+
+CLOSED positions normalize atomically into basic trades with exact decimal net profit. `/trades`
+supports account selection (including archived history), symbol/side filters, safe loading/empty/error
+states, and incremental pagination. Orders/Deals are not used to reconstruct trades. Story 7 is not
+implemented.
+
+Bootstrap also backfills missing trades from pre-Story-6 CLOSED positions after migration 0005.
+Backfill and new imports share checked `rust_decimal` normalization and remain idempotent.
+
 ## Story 7 — HTML support
 
 **Goal:** parse the supplied MT5 HTML report into the same intermediate model.

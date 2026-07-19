@@ -87,6 +87,11 @@ batch/raw/entity insert inside one Rust transaction.
 Migration `0004_mt5_entities.sql` creates `mt5_positions`, `mt5_orders`, and `mt5_deals`.
 Financial quantities use canonical decimal `TEXT`; no `trades` table is created in Story 5.
 
+Migration `0005_trades.sql` adds the Story 6 normalized `trades` table. Its source is exclusively
+valid CLOSED `mt5_positions`; Orders and Deals remain reconciliation data. Source identity is unique
+per `(account_id, source_type, source_position_id)`, timestamps and duration are constrained, and all
+financial values remain decimal `TEXT`.
+
 ### mt5_orders
 
 - id

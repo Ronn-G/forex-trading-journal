@@ -174,4 +174,17 @@ It acquires the SQLite writer with `BEGIN IMMEDIATE` before duplicate checks, so
 commands cannot both pass the source/entity prechecks. Lock failures are mapped to a safe typed
 transaction error without exposing SQLite details.
 
-Story 5 writes no normalized trades. Story 6 remains unimplemented.
+Story 5 itself wrote no normalized trades; Story 6 extends that transaction as described below.
+
+## 12. Story 6 normalization and read boundary
+
+`commit_mt5_import` now normalizes valid CLOSED positions after MT5 entity inserts and before batch
+finalization in the same `BEGIN IMMEDIATE` transaction. `rust_decimal` calculates canonical
+`net_profit = profit + commission + swap` without binary floating-point. Open positions create no
+closed trade. The `/trades` route reads through `ListTradesService` and `SqlTradeRepository`; React
+does not query SQLite directly. Story 7 remains unimplemented.
+
+After TypeScript migrations complete, application bootstrap invokes Rust `backfill_missing_trades`.
+The command uses `BEGIN IMMEDIATE` and the same shared normalization/insert helpers as new imports to
+create missing trades for Story 5 CLOSED positions, including archived-account history. It never
+overwrites an existing trade and is safe to rerun.

@@ -7,6 +7,7 @@ export interface CommitImportResult {
   readonly positionsInserted: number;
   readonly ordersInserted: number;
   readonly dealsInserted: number;
+  readonly tradesInserted: number;
   readonly skippedDuplicates: number;
   readonly warningCount: number;
   readonly errorCount: number;

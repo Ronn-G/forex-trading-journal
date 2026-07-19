@@ -10,6 +10,7 @@ export function ImportResult({ result, onReset }: {
     <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
       <p>Raw: {result.rawRecordsInserted}</p><p>Positions: {result.positionsInserted}</p>
       <p>Orders: {result.ordersInserted}</p><p>Deals: {result.dealsInserted}</p>
+      <p>Trades: {result.tradesInserted}</p>
       <p>Bỏ qua: {result.skippedDuplicates}</p><p>Warnings: {result.warningCount}</p>
       <p>Errors: {result.errorCount}</p><p>{new Date(result.completedAt).toLocaleString()}</p>
     </div>

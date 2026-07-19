@@ -76,3 +76,18 @@ JSON only for records in the canonical commit payload:
 Rows rejected as invalid and rows skipped as existing duplicates are represented by preview/batch
 counts and issues but are not inserted into `raw_mt5_records`. Raw entity records must use the matching
 `POSITION`, `ORDER`, or `DEAL` type and external ID; Results records must have no external ID.
+
+## Story 6 position normalization
+
+Valid CLOSED `mt5_positions` are normalized into basic trades inside the same atomic import
+transaction. Orders and Deals are not joined or inferred in Story 6. Net profit uses exact
+`rust_decimal` arithmetic: `profit + commission + swap`; duration is `closed_at - opened_at`.
+The account-scoped source constraint makes normalization idempotent, and any trade failure rolls back
+the batch, raw rows, MT5 entities, and trades. OPEN positions remain persisted as positions but do not
+create completed trades.
+
+For databases that already contain Story 5 positions, bootstrap runs an idempotent Rust backfill only
+after migration 0005. It selects CLOSED positions without an existing account-scoped trade via
+`NOT EXISTS`, normalizes them with the same checked-decimal helper as new imports, and commits all
+backfill inserts in one `BEGIN IMMEDIATE` transaction. A parse error or decimal overflow rolls back the
+whole backfill; existing trades are never updated or replaced.

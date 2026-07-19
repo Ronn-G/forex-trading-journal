@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { invoke } from "@tauri-apps/api/core";
 import { RouterProvider } from "react-router-dom";
 import { ErrorBoundary } from "./app/shell/ErrorBoundary";
 import { InitializationFailureScreen } from "./app/shell/InitializationFailureScreen";
@@ -19,6 +20,9 @@ export function App() {
       
       // 2. Chạy migration tự động
       await runMigrations(db);
+
+      // 3. Backfill Story 5 CLOSED positions only after migration 0005 exists.
+      await invoke<number>("backfill_missing_trades");
     } catch (error) {
       console.error("Failed to initialize application:", error);
       setInitError(error instanceof Error ? error : new Error(String(error)));

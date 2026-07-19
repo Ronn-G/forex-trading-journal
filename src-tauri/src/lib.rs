@@ -65,7 +65,8 @@ pub fn run() {
         })
         .invoke_handler(tauri::generate_handler![
             get_app_paths,
-            import::command::commit_mt5_import
+            import::command::commit_mt5_import,
+            import::command::backfill_missing_trades
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

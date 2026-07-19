@@ -27,7 +27,7 @@ function preview(overrides: Partial<ImportPreview> = {}): ImportPreview {
 describe("ImportService", () => {
   it("invokes the Rust command with a canonical account-scoped payload", async () => {
     const result = { batchId: "b", rawRecordsInserted: 1, positionsInserted: 1, ordersInserted: 0,
-      dealsInserted: 0, skippedDuplicates: 0, warningCount: 0, errorCount: 0, completedAt: 2 };
+      dealsInserted: 0, tradesInserted: 1, skippedDuplicates: 0, warningCount: 0, errorCount: 0, completedAt: 2 };
     const invoke = vi.fn().mockResolvedValue(result);
     await expect(new ImportService(invoke).commit(preview(), "account-a", "a".repeat(64))).resolves.toEqual(result);
     expect(invoke).toHaveBeenCalledWith("commit_mt5_import", {

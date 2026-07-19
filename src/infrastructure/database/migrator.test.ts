@@ -73,6 +73,7 @@ describe("infrastructure/database/migrator", () => {
       { version: 2, name: "0002_accounts" },
       { version: 3, name: "0003_import_foundation" },
       { version: 4, name: "0004_mt5_entities" },
+      { version: 5, name: "0005_trades" },
     ]);
 
     const accountsMigration = MIGRATIONS[1];
@@ -82,6 +83,19 @@ describe("infrastructure/database/migrator", () => {
     expect(accountsMigration.sql).toContain("CREATE INDEX idx_accounts_archived_name");
     expect(accountsMigration.sql).toContain("CREATE INDEX idx_accounts_broker_server");
     expect(accountsMigration.sql).not.toMatch(/password|api[_ ]?key|token/i);
+  });
+
+  it("registers migration 0005 with basic normalized trade constraints", () => {
+    const migration = MIGRATIONS[4];
+    expect(migration.sql).toContain("CREATE TABLE trades");
+    expect(migration.sql).toContain("UNIQUE(account_id, source_type, source_position_id)");
+    expect(migration.sql).toContain("source_type = 'MT5_POSITION'");
+    expect(migration.sql).toContain("side IN ('BUY', 'SELL')");
+    expect(migration.sql).toContain("status = 'CLOSED'");
+    expect(migration.sql).toContain("closed_at >= opened_at");
+    expect(migration.sql).toContain("duration_ms >= 0");
+    expect(migration.sql).toMatch(/idx_trades_account_closed/);
+    expect(migration.sql).not.toMatch(/\bREAL\b|\bFLOAT\b|notes|tags|emotion|setup|strategy/i);
   });
 
   it("registers migration 0004 without normalized trade tables or floating financial storage", () => {
@@ -127,7 +141,7 @@ describe("infrastructure/database/migrator", () => {
     const inserts = vi.mocked(mockDb.execute).mock.calls
       .filter(([sql]) => typeof sql === "string" && sql.startsWith("INSERT INTO schema_migrations"))
       .map(([, parameters]) => (parameters as unknown[])[0]);
-    expect(inserts).toEqual([1, 2, 3, 4]);
+    expect(inserts).toEqual([1, 2, 3, 4, 5]);
   });
 
   it("does not run migrations that are already applied", async () => {

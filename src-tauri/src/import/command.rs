@@ -1,6 +1,7 @@
 use std::collections::{HashMap, HashSet};
 use std::time::{SystemTime, UNIX_EPOCH};
 
+use rust_decimal::Decimal;
 use sqlx::{Row, Sqlite, Transaction};
 use tauri::AppHandle;
 
@@ -25,6 +26,116 @@ struct RawLookup<'a> {
     external_id: Option<&'a str>,
 }
 
+struct PositionForNormalization<'a> {
+    trade_id: String,
+    account_id: &'a str,
+    import_batch_id: &'a str,
+    source_position_id: &'a str,
+    symbol: &'a str,
+    side: &'a str,
+    volume: &'a str,
+    opened_at: i64,
+    closed_at: i64,
+    original_opened_at: &'a str,
+    original_closed_at: &'a str,
+    open_price: &'a str,
+    close_price: &'a str,
+    stop_loss: Option<&'a str>,
+    take_profit: Option<&'a str>,
+    commission: &'a str,
+    swap: &'a str,
+    profit: &'a str,
+    timestamp: i64,
+}
+
+fn checked_net_profit(
+    profit: &str,
+    commission: &str,
+    swap: &str,
+) -> Result<String, ImportCommandError> {
+    let profit = profit
+        .parse::<Decimal>()
+        .map_err(|_| validation("Position financial values are invalid."))?;
+    let commission = commission
+        .parse::<Decimal>()
+        .map_err(|_| validation("Position financial values are invalid."))?;
+    let swap = swap
+        .parse::<Decimal>()
+        .map_err(|_| validation("Position financial values are invalid."))?;
+    profit
+        .checked_add(commission)
+        .and_then(|value| value.checked_add(swap))
+        .map(|value| value.normalize().to_string())
+        .ok_or_else(|| validation("Position financial total is out of range."))
+}
+
+async fn insert_normalized_trade(
+    tx: &mut Transaction<'_, Sqlite>,
+    position: PositionForNormalization<'_>,
+) -> Result<(), ImportCommandError> {
+    if position.closed_at < position.opened_at {
+        return Err(validation("Position close time precedes open time."));
+    }
+    let net_profit = checked_net_profit(position.profit, position.commission, position.swap)?;
+    let inserted = sqlx::query(
+        "INSERT INTO trades (
+          id, account_id, source_type, source_position_id, import_batch_id,
+          symbol, side, volume, opened_at, closed_at, original_opened_at,
+          original_closed_at, open_price, close_price, stop_loss, take_profit,
+          commission, swap, gross_profit, net_profit, duration_ms, status,
+          created_at, updated_at
+        ) VALUES (
+          $1,$2,'MT5_POSITION',$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,
+          $16,$17,$18,$19,$20,'CLOSED',$21,$21
+        )",
+    )
+    .bind(position.trade_id)
+    .bind(position.account_id)
+    .bind(position.source_position_id)
+    .bind(position.import_batch_id)
+    .bind(position.symbol)
+    .bind(position.side)
+    .bind(position.volume)
+    .bind(position.opened_at)
+    .bind(position.closed_at)
+    .bind(position.original_opened_at)
+    .bind(position.original_closed_at)
+    .bind(position.open_price)
+    .bind(position.close_price)
+    .bind(position.stop_loss)
+    .bind(position.take_profit)
+    .bind(position.commission)
+    .bind(position.swap)
+    .bind(position.profit)
+    .bind(net_profit)
+    .bind(position.closed_at - position.opened_at)
+    .bind(position.timestamp)
+    .execute(&mut **tx)
+    .await;
+    if inserted.is_err() {
+        if conflict_exists(
+            tx,
+            "trades",
+            "source_position_id",
+            position.account_id,
+            &[position.source_position_id.to_owned()],
+        )
+        .await
+        .unwrap_or(false)
+        {
+            return Err(ImportCommandError::new(
+                "ENTITY_CONFLICT",
+                "A normalized trade already exists for this position.",
+            ));
+        }
+        return Err(ImportCommandError::new(
+            "TRANSACTION_FAILED",
+            "Normalized trades could not be inserted.",
+        ));
+    }
+    Ok(())
+}
+
 #[cfg(test)]
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 enum FailurePoint {
@@ -33,6 +144,7 @@ enum FailurePoint {
     AfterPosition,
     AfterOrder,
     AfterDeal,
+    AfterTrades,
     BeforeFinalUpdate,
 }
 
@@ -428,6 +540,19 @@ async fn commit_with_pool_internal(
         .await?
         || conflict_exists(
             &mut tx,
+            "trades",
+            "source_position_id",
+            &payload.account_id,
+            &payload
+                .positions
+                .iter()
+                .filter(|value| value.status == "CLOSED")
+                .map(|value| value.external_position_id.clone())
+                .collect::<Vec<_>>(),
+        )
+        .await?
+        || conflict_exists(
+            &mut tx,
             "mt5_deals",
             "external_deal_id",
             &payload.account_id,
@@ -583,6 +708,52 @@ async fn commit_with_pool_internal(
     }
     #[cfg(test)]
     inject_failure(failure_point, FailurePoint::AfterDeal)?;
+    let mut trades_inserted = 0;
+    for position in payload
+        .positions
+        .iter()
+        .filter(|position| position.status == "CLOSED")
+    {
+        let close_price = position
+            .close_price
+            .as_deref()
+            .ok_or_else(|| validation("Closed positions require a close price."))?;
+        let closed_at = position
+            .closed_at
+            .ok_or_else(|| validation("Closed positions require a close time."))?;
+        let original_closed_at = position
+            .original_closed_at
+            .as_deref()
+            .ok_or_else(|| validation("Closed positions require an original close time."))?;
+        insert_normalized_trade(
+            &mut tx,
+            PositionForNormalization {
+                trade_id: format!("trade:{}:{}", payload.batch_id, position.id),
+                account_id: &payload.account_id,
+                import_batch_id: &payload.batch_id,
+                source_position_id: &position.external_position_id,
+                symbol: &position.symbol,
+                side: &position.side,
+                volume: &position.volume,
+                opened_at: position.opened_at,
+                closed_at,
+                original_opened_at: &position.original_opened_at,
+                original_closed_at,
+                open_price: &position.open_price,
+                close_price,
+                stop_loss: position.stop_loss.as_deref(),
+                take_profit: position.take_profit.as_deref(),
+                commission: &position.commission,
+                swap: &position.swap,
+                profit: &position.profit,
+                timestamp: payload.started_at,
+            },
+        )
+        .await?;
+        trades_inserted += 1;
+    }
+    #[cfg(test)]
+    inject_failure(failure_point, FailurePoint::AfterTrades)?;
     let completed_at = SystemTime::now()
         .duration_since(UNIX_EPOCH)
         .unwrap_or_default()
@@ -605,6 +776,7 @@ async fn commit_with_pool_internal(
         positions_inserted: payload.positions.len(),
         orders_inserted: payload.orders.len(),
         deals_inserted: payload.deals.len(),
+        trades_inserted,
         skipped_duplicates: payload.counts.skipped_rows,
         warning_count: payload.counts.warning_rows,
         error_count: payload.counts.error_rows,
@@ -625,6 +797,92 @@ pub async fn commit_with_pool(
     .await
 }
 
+pub async fn backfill_with_pool(pool: &sqlx::SqlitePool) -> Result<usize, ImportCommandError> {
+    let mut tx = pool.begin_with("BEGIN IMMEDIATE").await.map_err(|_| {
+        ImportCommandError::new(
+            "TRANSACTION_FAILED",
+            "Trade backfill transaction could not start.",
+        )
+    })?;
+    let rows = sqlx::query(
+        "SELECT p.id, p.account_id, p.import_batch_id, p.external_position_id,
+                p.symbol, p.side, p.volume, p.opened_at, p.closed_at,
+                p.original_opened_at, p.original_closed_at, p.open_price,
+                p.close_price, p.stop_loss, p.take_profit, p.commission,
+                p.swap, p.profit, p.created_at
+           FROM mt5_positions p
+          WHERE p.status = 'CLOSED'
+            AND p.close_price IS NOT NULL
+            AND p.closed_at IS NOT NULL
+            AND p.original_closed_at IS NOT NULL
+            AND NOT EXISTS (
+              SELECT 1 FROM trades t
+               WHERE t.account_id = p.account_id
+                 AND t.source_type = 'MT5_POSITION'
+                 AND t.source_position_id = p.external_position_id
+            )
+          ORDER BY p.created_at ASC, p.id ASC",
+    )
+    .fetch_all(&mut *tx)
+    .await
+    .map_err(|_| {
+        ImportCommandError::new(
+            "TRANSACTION_FAILED",
+            "Positions for trade backfill could not be read.",
+        )
+    })?;
+    for row in &rows {
+        let position_id: String = row.get("id");
+        let account_id: String = row.get("account_id");
+        let import_batch_id: String = row.get("import_batch_id");
+        let source_position_id: String = row.get("external_position_id");
+        let symbol: String = row.get("symbol");
+        let side: String = row.get("side");
+        let volume: String = row.get("volume");
+        let original_opened_at: String = row.get("original_opened_at");
+        let original_closed_at: String = row.get("original_closed_at");
+        let open_price: String = row.get("open_price");
+        let close_price: String = row.get("close_price");
+        let stop_loss: Option<String> = row.get("stop_loss");
+        let take_profit: Option<String> = row.get("take_profit");
+        let commission: String = row.get("commission");
+        let swap: String = row.get("swap");
+        let profit: String = row.get("profit");
+        insert_normalized_trade(
+            &mut tx,
+            PositionForNormalization {
+                trade_id: format!("trade:backfill:{position_id}"),
+                account_id: &account_id,
+                import_batch_id: &import_batch_id,
+                source_position_id: &source_position_id,
+                symbol: &symbol,
+                side: &side,
+                volume: &volume,
+                opened_at: row.get("opened_at"),
+                closed_at: row.get("closed_at"),
+                original_opened_at: &original_opened_at,
+                original_closed_at: &original_closed_at,
+                open_price: &open_price,
+                close_price: &close_price,
+                stop_loss: stop_loss.as_deref(),
+                take_profit: take_profit.as_deref(),
+                commission: &commission,
+                swap: &swap,
+                profit: &profit,
+                timestamp: row.get("created_at"),
+            },
+        )
+        .await?;
+    }
+    tx.commit().await.map_err(|_| {
+        ImportCommandError::new(
+            "TRANSACTION_FAILED",
+            "Trade backfill transaction could not commit.",
+        )
+    })?;
+    Ok(rows.len())
+}
+
 #[tauri::command]
 pub async fn commit_mt5_import(
     app: AppHandle,
@@ -633,6 +891,13 @@ pub async fn commit_mt5_import(
     let path = resolve_database_path(&app)?;
     let pool = open_database(&path).await?;
     commit_with_pool(&pool, payload).await
+}
+
+#[tauri::command]
+pub async fn backfill_missing_trades(app: AppHandle) -> Result<usize, ImportCommandError> {
+    let path = resolve_database_path(&app)?;
+    let pool = open_database(&path).await?;
+    backfill_with_pool(&pool).await
 }
 
 #[cfg(test)]
@@ -662,6 +927,12 @@ mod tests {
         .execute(&pool)
         .await
         .unwrap();
+        sqlx::raw_sql(include_str!(
+            "../../../src/infrastructure/database/migrations/0005_trades.sql"
+        ))
+        .execute(&pool)
+        .await
+        .unwrap();
         sqlx::query("INSERT INTO accounts(id,is_archived) VALUES('a',0),('b',0),('archived',1)")
             .execute(&pool)
             .await
@@ -680,6 +951,12 @@ mod tests {
         .unwrap();
         sqlx::raw_sql(include_str!(
             "../../../src/infrastructure/database/migrations/0004_mt5_entities.sql"
+        ))
+        .execute(pool)
+        .await
+        .unwrap();
+        sqlx::raw_sql(include_str!(
+            "../../../src/infrastructure/database/migrations/0005_trades.sql"
         ))
         .execute(pool)
         .await
@@ -865,14 +1142,25 @@ mod tests {
     #[tokio::test]
     async fn successful_import_sets_counters_and_foreign_keys() {
         let pool = pool().await;
-        let result = commit_with_pool(&pool, payload("a", 'a')).await.unwrap();
+        let mut input = payload("a", 'a');
+        input.positions[0].profit = "10.50".into();
+        input.positions[0].commission = "-2.00".into();
+        input.positions[0].swap = "-0.25".into();
+        let result = commit_with_pool(&pool, input).await.unwrap();
         assert_eq!(result.positions_inserted, 1);
+        assert_eq!(result.trades_inserted, 1);
         let row = sqlx::query("SELECT status, imported_rows FROM import_batches")
             .fetch_one(&pool)
             .await
             .unwrap();
         assert_eq!(row.get::<String, _>("status"), "IMPORTED");
         assert_eq!(row.get::<i64, _>("imported_rows"), 1);
+        let trade = sqlx::query("SELECT net_profit, duration_ms FROM trades")
+            .fetch_one(&pool)
+            .await
+            .unwrap();
+        assert_eq!(trade.get::<String, _>("net_profit"), "8.25");
+        assert_eq!(trade.get::<i64, _>("duration_ms"), 1);
         assert_eq!(
             sqlx::query("PRAGMA foreign_keys")
                 .fetch_one(&pool)
@@ -880,6 +1168,135 @@ mod tests {
                 .unwrap()
                 .get::<i64, _>(0),
             1
+        );
+    }
+
+    #[tokio::test]
+    async fn open_position_is_imported_without_a_normalized_trade() {
+        let pool = pool().await;
+        let mut input = payload("a", '0');
+        input.positions[0].status = "OPEN".into();
+        input.positions[0].close_price = None;
+        input.positions[0].closed_at = None;
+        input.positions[0].original_closed_at = None;
+        let result = commit_with_pool(&pool, input).await.unwrap();
+        assert_eq!(result.positions_inserted, 1);
+        assert_eq!(result.trades_inserted, 0);
+        assert_eq!(
+            sqlx::query_scalar::<_, i64>("SELECT COUNT(*) FROM trades")
+                .fetch_one(&pool)
+                .await
+                .unwrap(),
+            0
+        );
+    }
+
+    #[test]
+    fn checked_decimal_addition_handles_valid_values_and_overflow_without_panicking() {
+        assert_eq!(
+            checked_net_profit("10.50", "-2.00", "-0.25").unwrap(),
+            "8.25"
+        );
+        assert!(checked_net_profit(&Decimal::MAX.to_string(), "1", "0").is_err());
+    }
+
+    #[tokio::test]
+    async fn decimal_overflow_rolls_back_the_entire_import() {
+        let pool = pool().await;
+        let mut input = payload("a", '9');
+        input.positions[0].profit = Decimal::MAX.to_string();
+        input.positions[0].commission = "1".into();
+        assert_eq!(
+            commit_with_pool(&pool, input).await.unwrap_err().code,
+            "VALIDATION_ERROR"
+        );
+        for table in [
+            "import_batches",
+            "raw_mt5_records",
+            "mt5_positions",
+            "trades",
+        ] {
+            assert_eq!(
+                sqlx::query_scalar::<_, i64>(&format!("SELECT COUNT(*) FROM {table}"))
+                    .fetch_one(&pool)
+                    .await
+                    .unwrap(),
+                0
+            );
+        }
+    }
+
+    #[tokio::test]
+    async fn backfill_is_idempotent_includes_archived_accounts_and_skips_open_positions() {
+        let pool = pool().await;
+        let mut first = payload("a", '1');
+        first.positions[0].profit = "10.50".into();
+        first.positions[0].commission = "-2.00".into();
+        first.positions[0].swap = "-0.25".into();
+        commit_with_pool(&pool, first).await.unwrap();
+        commit_with_pool(&pool, payload("b", '2')).await.unwrap();
+        let mut open = payload("a", '3');
+        open.positions[0].external_position_id = "open-p".into();
+        open.raw_records[0].external_id = Some("open-p".into());
+        open.positions[0].status = "OPEN".into();
+        open.positions[0].close_price = None;
+        open.positions[0].closed_at = None;
+        open.positions[0].original_closed_at = None;
+        commit_with_pool(&pool, open).await.unwrap();
+        sqlx::query("DELETE FROM trades")
+            .execute(&pool)
+            .await
+            .unwrap();
+        sqlx::query("UPDATE accounts SET is_archived=1 WHERE id='a'")
+            .execute(&pool)
+            .await
+            .unwrap();
+
+        assert_eq!(backfill_with_pool(&pool).await.unwrap(), 2);
+        assert_eq!(backfill_with_pool(&pool).await.unwrap(), 0);
+        let trades = sqlx::query("SELECT account_id, net_profit FROM trades ORDER BY account_id")
+            .fetch_all(&pool)
+            .await
+            .unwrap();
+        assert_eq!(trades.len(), 2);
+        assert_eq!(trades[0].get::<String, _>("account_id"), "a");
+        assert_eq!(trades[0].get::<String, _>("net_profit"), "8.25");
+        assert_eq!(trades[1].get::<String, _>("account_id"), "b");
+    }
+
+    #[tokio::test]
+    async fn invalid_decimal_rolls_back_all_backfill_trades_and_database_remains_readable() {
+        let pool = pool().await;
+        commit_with_pool(&pool, payload("a", '4')).await.unwrap();
+        let mut second = payload("b", '5');
+        second.positions[0].external_position_id = "p2".into();
+        second.raw_records[0].external_id = Some("p2".into());
+        commit_with_pool(&pool, second).await.unwrap();
+        sqlx::query("DELETE FROM trades")
+            .execute(&pool)
+            .await
+            .unwrap();
+        sqlx::query("UPDATE mt5_positions SET profit='not-decimal' WHERE account_id='b'")
+            .execute(&pool)
+            .await
+            .unwrap();
+        assert_eq!(
+            backfill_with_pool(&pool).await.unwrap_err().code,
+            "VALIDATION_ERROR"
+        );
+        assert_eq!(
+            sqlx::query_scalar::<_, i64>("SELECT COUNT(*) FROM trades")
+                .fetch_one(&pool)
+                .await
+                .unwrap(),
+            0
+        );
+        assert_eq!(
+            sqlx::query_scalar::<_, i64>("SELECT COUNT(*) FROM accounts")
+                .fetch_one(&pool)
+                .await
+                .unwrap(),
+            3
         );
     }
 
@@ -1184,9 +1601,10 @@ mod tests {
             FailurePoint::AfterPosition,
             FailurePoint::AfterOrder,
             FailurePoint::AfterDeal,
+            FailurePoint::AfterTrades,
             FailurePoint::BeforeFinalUpdate,
         ];
-        for (sha, point) in ['a', 'b', 'c', 'd', 'e', 'f'].into_iter().zip(points) {
+        for (sha, point) in ['a', 'b', 'c', 'd', 'e', 'f', '7'].into_iter().zip(points) {
             let pool = pool().await;
             let error = commit_with_pool_internal(&pool, full_payload("a", sha), Some(point))
                 .await
@@ -1198,6 +1616,7 @@ mod tests {
                 "mt5_positions",
                 "mt5_orders",
                 "mt5_deals",
+                "trades",
             ] {
                 let count: i64 = sqlx::query_scalar(&format!("SELECT COUNT(*) FROM {table}"))
                     .fetch_one(&pool)

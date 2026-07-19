@@ -3,6 +3,7 @@ import { AppShell } from "../shell/AppShell";
 import { HealthScreen } from "../../features/status/HealthScreen";
 import { AccountsScreen } from "../../features/accounts/AccountsScreen";
 import { ImportScreen } from "../../features/import/ImportScreen";
+import { TradesScreen } from "../../features/trades/TradesScreen";
 
 export const router = createBrowserRouter([
   {
@@ -24,6 +25,10 @@ export const router = createBrowserRouter([
       {
         path: "/import",
         element: <ImportScreen />,
+      },
+      {
+        path: "/trades",
+        element: <TradesScreen />,
       },
     ],
   },

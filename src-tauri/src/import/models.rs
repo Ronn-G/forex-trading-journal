@@ -119,6 +119,7 @@ pub struct CommitImportResult {
     pub positions_inserted: usize,
     pub orders_inserted: usize,
     pub deals_inserted: usize,
+    pub trades_inserted: usize,
     pub skipped_duplicates: i64,
     pub warning_count: i64,
     pub error_count: i64,

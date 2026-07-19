@@ -40,7 +40,7 @@ const renderScreen = (
   previewFn = vi.fn().mockResolvedValue(preview),
   commitFn = vi.fn().mockResolvedValue({
     batchId: "batch-123456789", rawRecordsInserted: 1, positionsInserted: 1, ordersInserted: 0,
-    dealsInserted: 0, skippedDuplicates: 0, warningCount: 1, errorCount: 0, completedAt: 2,
+    dealsInserted: 0, tradesInserted: 1, skippedDuplicates: 0, warningCount: 1, errorCount: 0, completedAt: 2,
   }),
 ) => {
   const accountService = { list: vi.fn().mockResolvedValue(accounts) };
@@ -99,7 +99,7 @@ describe("ImportScreen", () => {
     vi.spyOn(window, "confirm").mockReturnValue(true);
     let resolve!: (value: {
       batchId: string; rawRecordsInserted: number; positionsInserted: number; ordersInserted: number;
-      dealsInserted: number; skippedDuplicates: number; warningCount: number; errorCount: number; completedAt: number;
+      dealsInserted: number; tradesInserted: number; skippedDuplicates: number; warningCount: number; errorCount: number; completedAt: number;
     }) => void;
     const commitFn = vi.fn().mockReturnValue(new Promise((done) => { resolve = done; }));
     renderScreen([account("a", "Alpha")], vi.fn().mockResolvedValue(preview), commitFn);
@@ -110,8 +110,9 @@ describe("ImportScreen", () => {
     expect(commitFn).toHaveBeenCalledTimes(1);
     expect(await screen.findByRole("button", { name: /đang nhập/i })).toBeDisabled();
     resolve({ batchId: "batch-123456789", rawRecordsInserted: 1, positionsInserted: 1, ordersInserted: 0,
-      dealsInserted: 0, skippedDuplicates: 0, warningCount: 1, errorCount: 0, completedAt: 2 });
+      dealsInserted: 0, tradesInserted: 1, skippedDuplicates: 0, warningCount: 1, errorCount: 0, completedAt: 2 });
     expect(await screen.findByText(/nhập dữ liệu thành công/i)).toBeInTheDocument();
+    expect(screen.getByText("Trades: 1")).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: /nhập file khác/i }));
     expect(await screen.findByText(/chọn vantage/i)).toBeInTheDocument();
   });

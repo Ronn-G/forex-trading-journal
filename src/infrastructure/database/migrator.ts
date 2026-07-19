@@ -4,6 +4,7 @@ import initialSql from "./migrations/0001_initial.sql?raw";
 import accountsSql from "./migrations/0002_accounts.sql?raw";
 import importFoundationSql from "./migrations/0003_import_foundation.sql?raw";
 import mt5EntitiesSql from "./migrations/0004_mt5_entities.sql?raw";
+import tradesSql from "./migrations/0005_trades.sql?raw";
 
 export interface Migration {
   version: number;
@@ -16,6 +17,7 @@ export const MIGRATIONS: Migration[] = [
   { version: 2, name: "0002_accounts", sql: accountsSql },
   { version: 3, name: "0003_import_foundation", sql: importFoundationSql },
   { version: 4, name: "0004_mt5_entities", sql: mt5EntitiesSql },
+  { version: 5, name: "0005_trades", sql: tradesSql },
 ];
 
 /**
